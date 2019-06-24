@@ -175,6 +175,12 @@ namespace Sass
 		return sass[pos] == 'u' && sass[pos+1] == 'r' && sass[pos+2] == 'l' && sass[pos+3] == '(';
 	}
 
+	static bool endsWithMediaQueries (std::string& sass, size_t pos)
+	{
+		size_t local_pos = findFirstCharacter(sass, pos);
+		return local_pos != std::string::npos && sass[local_pos] != ',';
+	}
+
 	// check if there is some char data
 	// will ignore everything in comments
 	static bool hasCharData (std::string& sass)
@@ -633,6 +639,7 @@ namespace Sass
 				bool in_dqstr = false;
 				bool in_sqstr = false;
 				bool is_escaped = false;
+
 				do {
 					if (is_escaped) {
 						is_escaped = false;
@@ -641,16 +648,62 @@ namespace Sass
 						is_escaped = true;
 					}
 					else if (sass[pos] == '"') {
-						if (!in_sqstr) in_dqstr = ! in_dqstr;
+						if (!in_sqstr) {
+							if (in_dqstr && endsWithMediaQueries(sass, pos + 1)) {
+								// refuse to process of media queries
+								break;
+							}
+
+							in_dqstr = !in_dqstr;
+						}
 					}
 					else if (sass[pos] == '\'') {
-						if (!in_dqstr) in_sqstr = ! in_sqstr;
+						if (!in_dqstr) {
+							if (in_sqstr && endsWithMediaQueries(sass, pos + 1)) {
+								// refuse to process of media queries
+								break;
+							}
+
+							in_sqstr = !in_sqstr;
+						}
 					}
 					else if (in_dqstr || in_sqstr) {
 						// skip over quoted stuff
 					}
+					else if (isUrl(sass, pos) && pos == start) {
+						size_t local_pos = findFirstCharacter(sass, pos + 4);
+						if (local_pos == std::string::npos) break;
+
+						if (sass[local_pos] == '"' || sass[local_pos] == '\'') {
+							local_pos = sass.find(sass[local_pos], local_pos + 1);
+							if (local_pos == std::string::npos) break;
+
+							local_pos = findFirstCharacter(sass, local_pos + 1);
+							if (local_pos == std::string::npos || sass[local_pos] != ')') break;
+						}
+						else {
+							local_pos = sass.find(')', local_pos + 1);
+							if (local_pos == std::string::npos) break;
+						}
+
+						if (endsWithMediaQueries(sass, local_pos + 1)) {
+							// refuse to process of media queries
+							break;
+						}
+
+						// skip whitespace and commas
+						do {
+							local_pos = findFirstCharacter(sass, local_pos + 1);
+						}
+						while (local_pos != std::string::npos && sass[local_pos] == ',');
+
+						if (local_pos == std::string::npos) break;
+
+						start = local_pos;
+						pos = local_pos - 1;
+					}
 					else if (sass[pos] == ',' || sass[pos] == 0) {
-						if (sass[start] != '"' && sass[start] != '\'' && !isUrl(sass, start)) {
+						if (sass[start] != '"' && sass[start] != '\'') {
 							size_t end = findLastCharacter(sass, pos - 1) + 1;
 							sass = sass.replace(end, 0, "\"");
 							sass = sass.replace(start, 0, "\"");

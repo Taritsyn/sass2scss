@@ -57,3 +57,9 @@ h1
 @import "font.sass  foo"
 @import  	foo bar
 @import foo, "b a r", url(uri), baz
+@import url(https://fonts.some-site.com/css?family=Limelight&subset=latin,latin-ext)
+@import url('https://fonts.some-site.com/css?family=Roboto+Mono&subset=greek,cyrillic')
+@import url("http://fonts.some-site.com/css?family=Open+Sans+Condensed:300&subset=latin,cyrillic")
+@import url(fineprint.css) not screen and (color), print and (color)
+@import 'custom.sass' screen, projection
+@import "section-508.sass" speech and (aspect-ratio: 11/5), braille
